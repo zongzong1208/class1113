@@ -1,0 +1,83 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    function isDocOwner() {
+      return isAuthenticated() && resource.data.ownerId == request.auth.uid;
+    }
+    function hasRequiredFields(data, fields) {
+      return data.keys().hasAll(fields);
+    }
+    function hasOnlyAllowedFields(data, fields) {
+      return data.keys().hasOnly(fields);
+    }
+    function validRecentTimestamp(value) {
+      return value is timestamp &&
+        value > request.time - duration.value(5, 'm') &&
+        value <= request.time;
+    }
+    function validUpdatedTimestamp(data) {
+      return data.updatedAt is timestamp && data.updatedAt == request.time;
+    }
+    function isValidEvent(data, userId) {
+      return hasRequiredFields(data, [
+          'title', 'ownerId', 'startAt', 'endAt', 'allDay', 'category',
+          'description', 'location', 'createdAt', 'updatedAt'
+        ]) &&
+        hasOnlyAllowedFields(data, [
+          'title', 'ownerId', 'startAt', 'endAt', 'allDay', 'category',
+          'description', 'location', 'createdAt', 'updatedAt'
+        ]) &&
+        data.title is string && data.title.size() > 0 && data.title.size() <= 100 &&
+        data.ownerId is string && data.ownerId == userId &&
+        data.startAt is timestamp && data.endAt is timestamp &&
+        data.startAt < data.endAt && data.allDay is bool &&
+        data.category is string && data.category.size() <= 40 &&
+        data.description is string && data.description.size() <= 500 &&
+        data.location is string && data.location.size() <= 150 &&
+        data.createdAt is timestamp && validUpdatedTimestamp(data);
+    }
+    function isValidTask(data, userId) {
+      return hasRequiredFields(data, [
+          'title', 'ownerId', 'dueAt', 'done', 'createdAt', 'updatedAt'
+        ]) &&
+        hasOnlyAllowedFields(data, [
+          'title', 'ownerId', 'dueAt', 'done', 'createdAt', 'updatedAt'
+        ]) &&
+        data.title is string && data.title.size() > 0 && data.title.size() <= 100 &&
+        data.ownerId is string && data.ownerId == userId &&
+        data.dueAt is timestamp && data.done is bool &&
+        data.createdAt is timestamp && validUpdatedTimestamp(data);
+    }
+    match /users/{userId}/events/{eventId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) &&
+        isValidEvent(request.resource.data, userId) &&
+        validRecentTimestamp(request.resource.data.createdAt);
+      allow update: if isOwner(userId) && isDocOwner() &&
+        isValidEvent(request.resource.data, userId) &&
+        request.resource.data.ownerId == resource.data.ownerId &&
+        request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isOwner(userId) && isDocOwner();
+    }
+    match /users/{userId}/tasks/{taskId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) &&
+        isValidTask(request.resource.data, userId) &&
+        validRecentTimestamp(request.resource.data.createdAt);
+      allow update: if isOwner(userId) && isDocOwner() &&
+        isValidTask(request.resource.data, userId) &&
+        request.resource.data.ownerId == resource.data.ownerId &&
+        request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isOwner(userId) && isDocOwner();
+    }
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
