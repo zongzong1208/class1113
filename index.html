@@ -41,7 +41,7 @@ body[data-theme="gaming"] .due-card{background:rgba(13,31,49,.88);border-color:#
 <div class="section-head"><h2>今日任務 <span class="count" id="taskCount"></span></h2><span class="section-note">完成後勾選</span></div><div class="list" id="taskList"></div>
 </main><aside class="side"><section class="card calendar-card"><div class="card-head"><h2>小月曆</h2><div class="month-nav"><button class="mini-nav" id="prevMonth" aria-label="上個月">‹</button><span class="month-name" id="monthName"></span><button class="mini-nav" id="nextMonth" aria-label="下個月">›</button></div></div><div class="calendar" id="calendar"></div><div class="legend"><span class="dot"></span>有安排的日期</div></section>
 <section class="card due-card"><div class="card-head"><div class="due-title-wrap"><span class="due-icon">◷</span><h2>即將到期</h2></div><span class="count" id="dueCount"></span></div><p class="due-summary">接下來 3 天內的未完成任務</p><div class="due-list" id="dueList"></div></section>
-<section class="card tip-card"><p class="tip">小提醒<br>任務只需設定日期，行程需設定開始與結束時間。登入後資料會同步至 Firestore，未登入時保存在本機。</p></section></aside></div></div>
+<section class="card tip-card"><p class="tip"><strong>隱私小提醒</strong><br>登入後，行程與任務會存於 Firebase，依帳號隔離；未登入時僅保存在此瀏覽器。詢問小助手時，相關行程／任務資料與近期對話會傳送給 Google Gemini。測試請用假資料，勿輸入密碼或敏感個資。<br><br>任務只需設定日期；行程請設定開始與結束時間。</p></section></aside></div></div>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-auth.js";
