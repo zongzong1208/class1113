@@ -129,8 +129,21 @@ export function createScheduleAssistant({ model, getContext }) {
     try {
       const result = await model.generateContent(buildPrompt(question, context), { signal: controller.signal });
       if (requestId !== requestSequence) return;
-      const answer = result.response.text().trim();
-      messages.push({ role: 'model', text: answer || '我目前沒有整理出答案，請換個方式問我。' });
+      const response = result.response;
+      const answer = response.text().trim();
+      if (answer) {
+        messages.push({ role: 'model', text: answer });
+      } else {
+        const finishReason = response.candidates?.[0]?.finishReason || 'UNKNOWN';
+        const blockReason = response.promptFeedback?.blockReason || '';
+        console.warn('[Schedule assistant] Gemini returned no text', { finishReason, blockReason });
+        const emptyMessage = blockReason
+          ? '這個問題可能觸發 Gemini 安全限制，請換成較一般的問法再試。'
+          : finishReason === 'MAX_TOKENS'
+            ? '回覆超出本次可用長度，請把問題縮小範圍後再試。'
+            : `Gemini 這次沒有提供文字回覆（${String(finishReason).slice(0, 40)}），請重試；若常發生，請把這段代碼告訴我。`;
+        messages.push({ role: 'model', text: emptyMessage });
+      }
     } catch (error) {
       if (requestId !== requestSequence) return;
       const raw = String(error?.message || error?.code || '');
@@ -141,6 +154,8 @@ export function createScheduleAssistant({ model, getContext }) {
         ? '小助手回覆逾時，可能是網路不穩或 Gemini 忙碌。等待已結束，請稍後重試。'
         : /app.?check|recaptcha/i.test(raw)
           ? '安全驗證尚未完成。請重新整理頁面後再試；若仍失敗，請稍後再試。'
+          : /safety|blocked|prompt.?blocked/i.test(raw)
+          ? '這個問題可能觸發 Gemini 安全限制，請換成較一般的問法再試。'
           : /quota|429|resource exhausted/i.test(raw)
             ? '目前 Gemini 使用量已達限制，請稍後再試。'
             : /permission|403|unauthorized/i.test(raw)

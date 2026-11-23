@@ -47,13 +47,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/13.3.0/firebas
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-auth.js";
 import { getFirestore, collection, doc, getDocs, setDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-firestore.js";
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-app-check.js";
-import { getAI, getGenerativeModel, GoogleAIBackend } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-ai.js";
+import { getAI, getGenerativeModel, GoogleAIBackend, ThinkingLevel } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-ai.js";
 import { createScheduleAssistant } from './ai-assistant.js';
 const firebaseConfig={apiKey:"AIzaSyAek7XLFe-Ut7JAMFeA-FJP3GWQxYLgA_I",authDomain:"project-e4dd5.firebaseapp.com",projectId:"project-e4dd5",storageBucket:"project-e4dd5.firebasestorage.app",messagingSenderId:"671055722268",appId:"1:671055722268:web:ef0702dad5ef9bef2cecd9",measurementId:"G-9GY151CWHW"};
 const app=initializeApp(firebaseConfig);
 const appCheck=initializeAppCheck(app,{provider:new ReCaptchaEnterpriseProvider('6LdfLSkuAAAAABaUJIXAx2ffEF0FFWtbD54EkYIz'),isTokenAutoRefreshEnabled:true});
 const ai=getAI(app,{backend:new GoogleAIBackend(),useLimitedUseAppCheckTokens:true});
-const aiModel=getGenerativeModel(ai,{model:'gemini-4-hydrogen',generationConfig:{temperature:0.35,maxOutputTokens:700}});
+const aiModel=getGenerativeModel(ai,{model:'gemini-4-hydrogen',generationConfig:{temperature:0.35,maxOutputTokens:1200,thinkingConfig:{thinkingLevel:ThinkingLevel.LOW}}});
 const auth=getAuth(app),db=getFirestore(app),provider=new GoogleAuthProvider(); provider.setCustomParameters({prompt:'select_account'});
 window.firestoreStore={db,collection,doc,getDocs,setDoc,updateDoc,deleteDoc,serverTimestamp,Timestamp};
 window.scheduleAssistant=createScheduleAssistant({model:aiModel,getContext:()=>window.dailyPlannerContext?.()||{}});
