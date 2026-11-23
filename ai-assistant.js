@@ -1,5 +1,6 @@
 const GREETING = '嗨！我可以根據你目前的行程、待辦和空檔回答問題。你想先了解什麼？';
 const CHAT_KEY = uid => `daymark-assistant-v1:${uid}`;
+const REQUEST_TIMEOUT_MS = 45000;
 
 export function createScheduleAssistant({ model, getContext }) {
   const root = document.createElement('div');
@@ -19,6 +20,8 @@ export function createScheduleAssistant({ model, getContext }) {
   let currentUid = null;
   let messages = [];
   let busy = false;
+  let activeRequest = null;
+  let requestSequence = 0;
 
   function loadMessages() {
     if (!currentUid) { messages = []; return; }
@@ -102,33 +105,55 @@ export function createScheduleAssistant({ model, getContext }) {
     $('#aiTyping').hidden = false;
     refresh();
 
+    const requestId = ++requestSequence;
+    const controller = new AbortController();
+    activeRequest = controller;
+    let timedOut = false;
+    const timeoutId = window.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, REQUEST_TIMEOUT_MS);
+
     try {
-      const result = await model.generateContent(buildPrompt(question, context));
+      const result = await model.generateContent(buildPrompt(question, context), { signal: controller.signal });
+      if (requestId !== requestSequence) return;
       const answer = result.response.text().trim();
       messages.push({ role: 'model', text: answer || '我目前沒有整理出答案，請換個方式問我。' });
     } catch (error) {
+      if (requestId !== requestSequence) return;
       const raw = String(error?.message || error?.code || '');
-      const message = /app.?check|recaptcha/i.test(raw)
-        ? '安全驗證尚未完成。請重新整理頁面後再試；若仍失敗，請稍後再試。'
-        : /quota|429|resource exhausted/i.test(raw)
-          ? '目前 Gemini 使用量已達限制，請稍後再試。'
-          : /permission|403|unauthorized/i.test(raw)
-            ? 'Firebase AI Logic 尚未允許這次請求，請稍後再試或檢查 Firebase 設定。'
-            : '小助手暫時無法回覆，請檢查網路後再試。';
+      const message = timedOut
+        ? '小助手回覆逾時，可能是網路不穩或 Gemini 忙碌。等待已結束，請稍後重試。'
+        : /app.?check|recaptcha/i.test(raw)
+          ? '安全驗證尚未完成。請重新整理頁面後再試；若仍失敗，請稍後再試。'
+          : /quota|429|resource exhausted/i.test(raw)
+            ? '目前 Gemini 使用量已達限制，請稍後再試。'
+            : /permission|403|unauthorized/i.test(raw)
+              ? 'Firebase AI Logic 尚未允許這次請求，請稍後再試或檢查 Firebase 設定。'
+              : '小助手暫時無法回覆，請檢查網路後再試。';
       messages.push({ role: 'model', text: message });
     } finally {
-      messages = messages.slice(-40);
-      saveMessages();
-      busy = false;
-      $('#aiTyping').hidden = true;
-      render();
-      refresh();
+      window.clearTimeout(timeoutId);
+      if (requestId === requestSequence) {
+        messages = messages.slice(-40);
+        saveMessages();
+        activeRequest = null;
+        busy = false;
+        $('#aiTyping').hidden = true;
+        render();
+        refresh();
+      }
     }
   }
 
   function setUser(user) {
     const nextUid = user?.uid || null;
     if (currentUid !== nextUid) {
+      requestSequence += 1;
+      activeRequest?.abort();
+      activeRequest = null;
+      busy = false;
+      $('#aiTyping').hidden = true;
       currentUid = nextUid;
       loadMessages();
       render();
