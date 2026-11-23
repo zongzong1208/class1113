@@ -122,6 +122,9 @@ export function createScheduleAssistant({ model, getContext }) {
     } catch (error) {
       if (requestId !== requestSequence) return;
       const raw = String(error?.message || error?.code || '');
+      const errorCode = String(error?.code || error?.name || 'unknown').replace(/[^a-z0-9_./-]/gi, '').slice(0, 60) || 'unknown';
+      const statusCode = Number(error?.status || error?.customData?.status) || null;
+      console.warn('[Schedule assistant] Firebase AI Logic request failed', { code: errorCode, status: statusCode });
       const message = timedOut
         ? '小助手回覆逾時，可能是網路不穩或 Gemini 忙碌。等待已結束，請稍後重試。'
         : /app.?check|recaptcha/i.test(raw)
@@ -129,8 +132,8 @@ export function createScheduleAssistant({ model, getContext }) {
           : /quota|429|resource exhausted/i.test(raw)
             ? '目前 Gemini 使用量已達限制，請稍後再試。'
             : /permission|403|unauthorized/i.test(raw)
-              ? 'Firebase AI Logic 尚未允許這次請求，請稍後再試或檢查 Firebase 設定。'
-              : '小助手暫時無法回覆，請檢查網路後再試。';
+              ? 'Firebase AI Logic 尚未允許這次請求，請檢查 App Check 與 Firebase AI Logic 設定。'
+              : `小助手暫時無法回覆（診斷碼：${errorCode}${statusCode ? `，HTTP ${statusCode}` : ''}）。請把這段診斷碼傳給我。`;
       messages.push({ role: 'model', text: message });
     } finally {
       window.clearTimeout(timeoutId);
